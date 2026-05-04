@@ -17,10 +17,8 @@ from PIL import Image, ImageFilter, ImageOps, ImageChops, ImageEnhance, ImageSta
 def parse_args():
     ap = argparse.ArgumentParser(description="Evolutionary collage / visual art generator")
 
-    ap.add_argument("--art_dir", type=str, default="art_population",
-                    help="Folder containing source images.")
-    ap.add_argument("--out_dir", type=str, default="runs/parts_evolver_coherent",
-                    help="Output folder.")
+    ap.add_argument("--art_dir", type=str, default="art_population", help="Folder containing source images.")
+    ap.add_argument("--out_dir", type=str, default="runs/parts_evolver_coherent", help="Output folder.")
 
     ap.add_argument("--w", type=int, default=1024, help="Canvas width.")
     ap.add_argument("--h", type=int, default=1024, help="Canvas height.")
@@ -31,24 +29,16 @@ def parse_args():
     ap.add_argument("--k", type=int, default=None, help="Number of parts/genes override.")
 
     ap.add_argument("--fps", type=int, default=7, help="GIF fps.")
-    ap.add_argument("--blur", type=float, default=7.0, help="Background blur radius.")
+    ap.add_argument("--blur", type=float, default=8.0, help="Background blur radius.")
     ap.add_argument("--feather", type=float, default=12.0, help="Patch edge feather.")
-    ap.add_argument("--max_patch", type=int, default=280, help="Max patch side for speed.")
+    ap.add_argument("--max_patch", type=int, default=320, help="Max patch side for speed.")
     ap.add_argument("--seed", type=int, default=42, help="Random seed.")
 
-    ap.add_argument("--composition", type=int, default=None,
-                    help="0 neutral, 1 centre, 2 balanced, 3 chaotic.")
-    ap.add_argument("--colour", type=int, default=None,
-                    help="0 none, 1 favour red, 2 favour blue.")
-    ap.add_argument("--style", type=int, default=None,
-                    help="0 neutral, 1 calm, 2 vivid, 3 dark/moody.")
+    ap.add_argument("--composition", type=int, default=0, help="0 neutral, 1 centre, 2 balanced, 3 chaotic.")
+    ap.add_argument("--colour", type=int, default=0, help="0 none, 1 favour red, 2 favour blue.")
+    ap.add_argument("--style", type=int, default=0, help="0 neutral, 1 calm, 2 vivid, 3 dark/moody.")
 
-    ap.add_argument("--interactive_review", action="store_true",
-                    help="Every few generations, review top candidates manually.")
-    ap.add_argument("--review_every", type=int, default=5,
-                    help="Interactive review interval.")
-    ap.add_argument("--save_feedback_pack", action="store_true",
-                    help="Create PNGs + CSV template for human scoring.")
+    ap.add_argument("--save_feedback_pack", action="store_true", help="Create PNGs + CSV template for human scoring.")
 
     return ap.parse_args()
 
@@ -68,20 +58,19 @@ MAX_PATCH_SIDE = ARGS.max_patch
 random.seed(ARGS.seed)
 np.random.seed(ARGS.seed)
 
-
 # ============================================================
-# RUN SETTINGS
+# SETTINGS
 # ============================================================
 FAST = bool(ARGS.fast)
 
 if FAST:
     POP = 12
     GENS = 24
-    K_PARTS = 9
+    K_PARTS = 5
 else:
     POP = 20
     GENS = 80
-    K_PARTS = 16
+    K_PARTS = 6
 
 if ARGS.pop is not None:
     POP = int(ARGS.pop)
@@ -91,62 +80,27 @@ if ARGS.k is not None:
     K_PARTS = int(ARGS.k)
 
 ELITES = 2
-MUT_P = 0.24
+MUT_P = 0.20
 
-# refined to look less chaotic
-SCALE_RANGE = (0.82, 1.22)
-ROT_RANGE = (-10, 10)
-ALPHA_RANGE = (0.72, 1.00)
+SCALE_RANGE = (0.92, 1.08)
+ROT_RANGE = (-2.0, 2.0)
+ALPHA_RANGE = (0.82, 1.00)
 
-# slightly larger source regions = stronger composition
-MIN_BOX_FRAC = 0.18
-MAX_BOX_FRAC = 0.62
+MIN_BOX_FRAC = 0.24
+MAX_BOX_FRAC = 0.60
 
-COHERENCE_WEIGHT = 0.75
-COMPOSITION_WEIGHT = 0.70
-INSTR_PENALTY_WEIGHT = 0.95
-COLOUR_BONUS_WEIGHT = 2.40
+COHERENCE_WEIGHT = 0.80
+COMPOSITION_WEIGHT = 0.75
+INSTR_PENALTY_WEIGHT = 1.00
+COLOUR_BONUS_WEIGHT = 2.30
 STYLE_WEIGHT = 0.55
-PALETTE_WEIGHT = 0.85
+PALETTE_WEIGHT = 0.90
 
-# smaller drift from layout slots = more unified result
-MAX_OFFSET_FRAC = 0.10
+MAX_OFFSET_FRAC = 0.02
 
-COMPOSITION_MODE = 0
-COLOUR_MODE = 0
-STYLE_MODE = 0
-
-
-# ============================================================
-# GOALS
-# ============================================================
-def prompt_if_none(current, text):
-    if current is not None:
-        return int(current)
-    try:
-        print(text)
-        s = input("Choose mode (Enter for 0): ").strip()
-        return int(s) if s else 0
-    except Exception:
-        return 0
-
-
-COMPOSITION_MODE = prompt_if_none(
-    ARGS.composition,
-    "\nComposition goal:\n0 neutral | 1 centre-focused | 2 balanced | 3 chaotic"
-)
-COLOUR_MODE = prompt_if_none(
-    ARGS.colour,
-    "\nColour goal:\n0 none | 1 favour RED | 2 favour BLUE"
-)
-STYLE_MODE = prompt_if_none(
-    ARGS.style,
-    "\nStyle goal:\n0 neutral | 1 calm/soft | 2 vivid/high-energy | 3 dark/moody"
-)
-
-COMPOSITION_MODE = max(0, min(3, COMPOSITION_MODE))
-COLOUR_MODE = max(0, min(2, COLOUR_MODE))
-STYLE_MODE = max(0, min(3, STYLE_MODE))
+COMPOSITION_MODE = max(0, min(3, int(ARGS.composition)))
+COLOUR_MODE = max(0, min(2, int(ARGS.colour)))
+STYLE_MODE = max(0, min(3, int(ARGS.style)))
 
 
 # ============================================================
@@ -157,8 +111,9 @@ def load_sources(folder: Path):
     if not folder.exists():
         raise SystemExit(f"Folder not found: {folder}")
 
+    valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
     for p in sorted(folder.iterdir()):
-        if p.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
+        if p.suffix.lower() not in valid_exts:
             continue
         try:
             im = Image.open(p).convert("RGBA")
@@ -176,8 +131,7 @@ if not SOURCES:
 
 print(f"\nLoaded {len(SOURCES)} source images from {ART_DIR}")
 print(f"Canvas: {CANV_W}x{CANV_H} | POP={POP} | GENS={GENS} | K_PARTS={K_PARTS}")
-print(f"Modes: composition={COMPOSITION_MODE}, colour={COLOUR_MODE}, style={STYLE_MODE}")
-print(f"Interactive review: {ARGS.interactive_review}\n")
+print(f"Modes: composition={COMPOSITION_MODE}, colour={COLOUR_MODE}, style={STYLE_MODE}\n")
 
 
 # ============================================================
@@ -272,8 +226,8 @@ def mutate_gene(g: Gene):
         W, H = SOURCES[img_id].size
 
         if choice in (1, 2):
-            dx = int(random.uniform(-0.05, 0.05) * (x2 - x1))
-            dy = int(random.uniform(-0.05, 0.05) * (y2 - y1))
+            dx = int(random.uniform(-0.04, 0.04) * (x2 - x1))
+            dy = int(random.uniform(-0.04, 0.04) * (y2 - y1))
             x1 += dx
             y1 += dy
             x2 += dx
@@ -282,25 +236,25 @@ def mutate_gene(g: Gene):
 
         elif choice == 3:
             side = max(10, x2 - x1)
-            delta = int(random.uniform(-0.08, 0.08) * side)
+            delta = int(random.uniform(-0.06, 0.06) * side)
             x2 += delta
             y2 += delta
             x1, y1, x2, y2 = clamp_bbox(x1, y1, x2, y2, W, H)
 
         elif choice == 4:
-            sc = max(SCALE_RANGE[0], min(SCALE_RANGE[1], sc * (1 + random.uniform(-0.12, 0.12))))
+            sc = max(SCALE_RANGE[0], min(SCALE_RANGE[1], sc * (1 + random.uniform(-0.06, 0.06))))
         elif choice == 5:
-            rt = max(ROT_RANGE[0], min(ROT_RANGE[1], rt + random.uniform(-3, 3)))
+            rt = max(ROT_RANGE[0], min(ROT_RANGE[1], rt + random.uniform(-1.0, 1.0)))
         elif choice == 6:
-            a = max(ALPHA_RANGE[0], min(ALPHA_RANGE[1], a + random.uniform(-0.10, 0.10)))
+            a = max(ALPHA_RANGE[0], min(ALPHA_RANGE[1], a + random.uniform(-0.06, 0.06)))
         elif choice == 7:
             z = random.random()
         else:
             _, _, cell_w, cell_h = SLOTS[slot]
             max_dx = int(cell_w * MAX_OFFSET_FRAC)
             max_dy = int(cell_h * MAX_OFFSET_FRAC)
-            ox = int(max(-max_dx, min(max_dx, ox + random.randint(-max(1, max_dx // 5), max(1, max_dx // 5)))))
-            oy = int(max(-max_dy, min(max_dy, oy + random.randint(-max(1, max_dy // 5), max(1, max_dy // 5)))))
+            ox = int(max(-max_dx, min(max_dx, ox + random.randint(-max(1, max_dx), max(1, max_dx)))))
+            oy = int(max(-max_dy, min(max_dy, oy + random.randint(-max(1, max_dy), max(1, max_dy)))))
 
     return Gene(img_id, x1, y1, x2, y2, sc, rt, a, z, slot, ox, oy)
 
@@ -327,7 +281,6 @@ def dominant_source_index(chrom):
 
 
 def make_blurred_background(chrom):
-    # better than random: background matches the dominant image in the composition
     idx = dominant_source_index(chrom)
     base = SOURCES[idx].convert("RGB")
     base = ImageOps.fit(base, (CANV_W, CANV_H), method=Image.LANCZOS)
@@ -374,7 +327,7 @@ def render_and_alpha_accum(chrom):
         r, g, b, a = patch.split()
         a = a.point(lambda v: int(v * gene.alpha))
         patch = Image.merge("RGBA", (r, g, b, a))
-        patch = feather_patch(patch, FEATHER)
+        patch = feather_patch(patch, FEATHER * 1.8)
 
         slot_cx, slot_cy, _, _ = SLOTS[gene.slot]
         cx = int(slot_cx + gene.ox)
@@ -424,7 +377,6 @@ def colour_metrics_from_img(img_rgba: Image.Image):
 
 
 def palette_consistency_score(chrom):
-    # reward similar average colour across selected patches for a more unified painting feel
     means = []
     for g in chrom:
         img = SOURCES[g.img_id]
@@ -508,16 +460,16 @@ def instruction_penalty(chrom):
     off_pen = 0.0
 
     for g in chrom:
-        if abs(g.rot) > 8:
-            rot_pen += (abs(g.rot) - 8) / 15.0
+        if abs(g.rot) > 2:
+            rot_pen += (abs(g.rot) - 2) / 8.0
 
-        if g.scale < 0.85:
-            scale_pen += (0.85 - g.scale) / 0.20
-        if g.scale > 1.12:
-            scale_pen += (g.scale - 1.12) / 0.20
+        if g.scale < 0.95:
+            scale_pen += (0.95 - g.scale) / 0.12
+        if g.scale > 1.05:
+            scale_pen += (g.scale - 1.05) / 0.12
 
-        if g.alpha < 0.75:
-            alpha_pen += (0.75 - g.alpha) / 0.15
+        if g.alpha < 0.84:
+            alpha_pen += (0.84 - g.alpha) / 0.12
 
         area = max(1, (g.x2 - g.x1) * (g.y2 - g.y1))
         if area < 3200:
@@ -544,12 +496,12 @@ def fitness(chrom):
     coverage = float((alpha_sum > 0.02).mean())
     overlap = float((alpha_sum > 1.0).mean())
 
-    base = 0.98 * coverage - 1.95 * overlap - 0.80 * (max(0.0, coverage - 0.93)) ** 2
+    base = 1.02 * coverage - 1.75 * overlap - 0.65 * (max(0.0, coverage - 0.93)) ** 2
 
     coh = coherence_score(chrom)
     comp = composition_score(chrom)
-    instr_pen = instruction_penalty(chrom)
     pal = palette_consistency_score(chrom)
+    instr_pen = instruction_penalty(chrom)
 
     cm = colour_metrics_from_img(img)
 
@@ -579,6 +531,23 @@ def fitness(chrom):
 # ============================================================
 def save_rgb(img_rgba, path: Path):
     img_rgba.convert("RGB").save(path)
+
+
+def make_json_safe(obj):
+    if isinstance(obj, dict):
+        return {k: make_json_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_json_safe(v) for v in obj]
+    elif isinstance(obj, tuple):
+        return [make_json_safe(v) for v in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
 
 
 def chrom_to_instruction_json(chrom):
@@ -613,7 +582,6 @@ def save_feedback_pack(images_for_feedback):
         for name in images_for_feedback:
             writer.writerow([name, "", "", ""])
 
-    # copy selected images into feedback folder
     for name in images_for_feedback:
         src = OUT_DIR / name
         if src.exists():
@@ -621,50 +589,6 @@ def save_feedback_pack(images_for_feedback):
             img.save(fb_dir / name)
 
     print(f"Saved feedback pack to {fb_dir}")
-
-
-# ============================================================
-# OPTIONAL INTERACTIVE REVIEW
-# ============================================================
-def review_top_candidates(scored, gen_idx):
-    try:
-        import matplotlib.pyplot as plt
-    except Exception:
-        return None
-
-    top = scored[:4]
-    if len(top) < 4:
-        return None
-
-    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
-    axes = axes.flatten()
-
-    for i, ax in enumerate(axes):
-        img = top[i][9].convert("RGB")
-        ax.imshow(img)
-        ax.set_title(f"{i+1} | fit={top[i][0]:.3f}")
-        ax.axis("off")
-
-    fig.suptitle(f"Generation {gen_idx}: choose favourite 1-4")
-    plt.tight_layout()
-    plt.show(block=False)
-
-    try:
-        choice = input(f"Generation {gen_idx}: pick favourite 1-4 (Enter to skip): ").strip()
-        plt.close(fig)
-        if not choice:
-            return None
-        idx = int(choice) - 1
-        if 0 <= idx < 4:
-            return idx
-    except Exception:
-        pass
-
-    try:
-        plt.close(fig)
-    except Exception:
-        pass
-    return None
 
 
 # ============================================================
@@ -686,14 +610,6 @@ def run_evolution():
             scored.append((f, cov, ovl, coh, comp, pal, sty, pen, cm, img, ind))
 
         scored.sort(key=lambda t: t[0], reverse=True)
-
-        if ARGS.interactive_review and gen % max(1, ARGS.review_every) == 0 and len(scored) >= 4:
-            fav_idx = review_top_candidates(scored, gen)
-            if fav_idx is not None:
-                fav = scored[fav_idx]
-                boosted = (fav[0] + 1.0, *fav[1:])
-                scored[fav_idx] = boosted
-                scored.sort(key=lambda t: t[0], reverse=True)
 
         best_f, best_cov, best_ovl, best_coh, best_comp, best_pal, best_sty, best_pen, best_cm, best_img, best_ind = scored[0]
 
@@ -746,15 +662,21 @@ def run_evolution():
         pop = new_pop
 
     if frames:
-        save_rgb(Image.fromarray(frames[-1]).convert("RGBA"), OUT_DIR / "final_composition.png")
+        final_img = Image.fromarray(frames[-1]).convert("RGBA")
+        blurred = final_img.filter(ImageFilter.GaussianBlur(radius=2.2))
+        final_img = Image.blend(final_img, blurred, alpha=0.35)
+        final_img = ImageEnhance.Contrast(final_img).enhance(0.96)
+        final_img = ImageEnhance.Color(final_img).enhance(0.92)
+
+        save_rgb(final_img, OUT_DIR / "final_composition.png")
         imageio.mimsave(str(OUT_DIR / "evolution.gif"), frames, fps=GIF_FPS)
 
     if best_overall is not None:
         (OUT_DIR / "best_instructions.json").write_text(
-            json.dumps(chrom_to_instruction_json(best_overall), indent=2)
+            json.dumps(make_json_safe(chrom_to_instruction_json(best_overall)), indent=2)
         )
         (OUT_DIR / "best_metrics.json").write_text(
-            json.dumps(best_overall_metrics, indent=2)
+            json.dumps(make_json_safe(best_overall_metrics), indent=2)
         )
 
     if ARGS.save_feedback_pack:
