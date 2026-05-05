@@ -9,6 +9,7 @@ from collections import Counter, namedtuple
 import imageio
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps, ImageChops, ImageEnhance, ImageStat
+import matplotlib.pyplot as plt
 
 
 # ============================================================
@@ -603,6 +604,16 @@ def run_evolution():
     best_overall_metrics = None
     feedback_images = []
 
+    # Curves for metrics plot
+    fitness_curve = []
+    coverage_curve = []
+    overlap_curve = []
+    coherence_curve = []
+    composition_curve = []
+    palette_curve = []
+    style_curve = []
+    penalty_curve = []
+
     for gen in range(GENS):
         scored = []
         for ind in pop:
@@ -612,6 +623,16 @@ def run_evolution():
         scored.sort(key=lambda t: t[0], reverse=True)
 
         best_f, best_cov, best_ovl, best_coh, best_comp, best_pal, best_sty, best_pen, best_cm, best_img, best_ind = scored[0]
+
+        # Store metrics for plot
+        fitness_curve.append(best_f)
+        coverage_curve.append(best_cov)
+        overlap_curve.append(best_ovl)
+        coherence_curve.append(best_coh)
+        composition_curve.append(best_comp)
+        palette_curve.append(best_pal)
+        style_curve.append(best_sty)
+        penalty_curve.append(best_pen)
 
         name = f"best_gen_{gen:03d}.png"
         save_rgb(best_img, OUT_DIR / name)
@@ -682,11 +703,32 @@ def run_evolution():
     if ARGS.save_feedback_pack:
         save_feedback_pack(feedback_images)
 
+    # Save metrics plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(fitness_curve, label="Fitness")
+    plt.plot(coverage_curve, label="Coverage")
+    plt.plot(overlap_curve, label="Overlap")
+    plt.plot(coherence_curve, label="Coherence")
+    plt.plot(composition_curve, label="Composition")
+    plt.plot(palette_curve, label="Palette Consistency")
+    plt.plot(style_curve, label="Style")
+    plt.plot(penalty_curve, label="Instruction Penalty")
+
+    plt.xlabel("Generation")
+    plt.ylabel("Score")
+    plt.title("Evolution Metrics Over Generations")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(OUT_DIR / "metrics_plot.png", dpi=150)
+    plt.close()
+
     print("\nSaved:")
     print(OUT_DIR / "final_composition.png")
     print(OUT_DIR / "evolution.gif")
     print(OUT_DIR / "best_instructions.json")
     print(OUT_DIR / "best_metrics.json")
+    print(OUT_DIR / "metrics_plot.png")
     if ARGS.save_feedback_pack:
         print(OUT_DIR / "feedback_pack")
 
