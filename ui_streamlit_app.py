@@ -9,7 +9,7 @@ import io
 st.set_page_config(page_title="Evolutionary Art Generator", layout="wide")
 
 st.title("🧬 Evolutionary Art Generator")
-st.markdown("### 🔬 Watch evovultionary alogrithms evolve images in real time")
+st.markdown("### 🔬 Watch evolutionary algorithms evolve images in real time")
 st.markdown(
     """
 Choose a dataset, adjust the settings, and generate unique artwork using evolutionary algorithms.
