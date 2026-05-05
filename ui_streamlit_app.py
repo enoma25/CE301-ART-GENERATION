@@ -33,15 +33,8 @@ st.sidebar.header("Evolution Settings")
 
 dataset = st.sidebar.selectbox(
     "Choose Dataset",
-    [
-        "art_population",
-        "datasets/Abstract",
-        "datasets/Space",
-        "datasets/Textures"
-    ]
+    ["abstract", "space", "textures"]
 )
-
-image_folder = dataset
 
 image_folder = f"datasets/{dataset}"
 
