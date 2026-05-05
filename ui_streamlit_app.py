@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 from PIL import Image
+import zipfile
+import io
 
 st.set_page_config(page_title="Evolutionary Art Generator", layout="wide")
 
@@ -197,8 +199,14 @@ if RUN_FOLDER.exists():
 # -------------------------
 # DOWNLOADS
 # -------------------------
+# -------------------------
+# DOWNLOADS
+# -------------------------
 st.markdown("---")
 st.subheader("Downloads")
+
+metrics_plot = RUN_FOLDER / "metrics_plot.png"
+feedback_folder = RUN_FOLDER / "feedback_pack"
 
 if final_img.exists():
     with open(final_img, "rb") as file:
@@ -207,3 +215,24 @@ if final_img.exists():
 if gif.exists():
     with open(gif, "rb") as file:
         st.download_button("Download Evolution GIF", file, "evolution.gif")
+
+if metrics_plot.exists():
+    with open(metrics_plot, "rb") as file:
+        st.download_button("Download Metrics Plot", file, "metrics_plot.png")
+
+if feedback_folder.exists():
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for file_path in feedback_folder.rglob("*"):
+            if file_path.is_file():
+                zip_file.write(file_path, arcname=file_path.name)
+
+    zip_buffer.seek(0)
+
+    st.download_button(
+        "Download Feedback Pack",
+        zip_buffer,
+        "feedback_pack.zip",
+        "application/zip"
+    )
